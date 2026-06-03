@@ -48,3 +48,12 @@ app.include_router(testcases.router, prefix="/api")
 @app.get("/")
 def read_root():
     return {"message": "Welcome to TestForge AI API"}
+
+@app.get("/api/debug-origins")
+def debug_origins():
+    return {
+        "allowed_origins": allowed_origins,
+        "env_origins": os.getenv("ALLOWED_ORIGINS"),
+        "env_origin": os.getenv("ALLOWED_ORIGIN"),
+        "frontend_url": os.getenv("FRONTEND_URL"),
+    }
