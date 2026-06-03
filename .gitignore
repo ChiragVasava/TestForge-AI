@@ -1,0 +1,41 @@
+# Dependencies & Runtimes
+node_modules/
+.venv/
+venv/
+env/
+ENV/
+*.tsbuildinfo
+
+# Build Outputs
+.next/
+out/
+build/
+dist/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Databases & Runtime Temporary Files
+backend/testforge.db
+backend/temp_runs/
+report.xml
+coverage.json
+.coverage
+htmlcov/
+
+# Sensitive Configuration & Environment Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# IDEs & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.log

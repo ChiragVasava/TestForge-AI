@@ -1,0 +1,27 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database & SQLite files
+testforge.db
+testforge.db-journal
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Temporary execution sandbox runs
+temp_runs/
+
+# Sensitive environment credentials
+.env
+
+# Testing / Pytest artifacts
+.coverage
+htmlcov/
+report.xml
+coverage.json
+.pytest_cache/
