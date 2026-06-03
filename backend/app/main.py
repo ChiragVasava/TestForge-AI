@@ -23,10 +23,11 @@ allowed_origins = [
 ]
 
 # Support custom frontend URLs for CORS in production
-env_origins = os.getenv("ALLOWED_ORIGINS")
-if env_origins:
-    for origin in env_origins.split(","):
-        allowed_origins.append(origin.strip().rstrip("/"))
+for var_name in ["ALLOWED_ORIGINS", "ALLOWED_ORIGIN", "FRONTEND_URL"]:
+    env_origins = os.getenv(var_name)
+    if env_origins:
+        for origin in env_origins.split(","):
+            allowed_origins.append(origin.strip().rstrip("/"))
 
 # CORS middleware configuration
 app.add_middleware(
