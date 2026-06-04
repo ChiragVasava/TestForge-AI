@@ -39,3 +39,9 @@ htmlcov/
 Thumbs.db
 *.swp
 *.log
+
+# Project Documentation
+MD_Files/
+**/.env
+**/.env.local
+
