@@ -527,6 +527,45 @@ The API client in `frontend/src/lib/api.ts` targets `http://127.0.0.1:8000` by d
 
 ---
 
+## 🤖 Standalone Scanner CLI & CI/CD Quality Gate
+
+We have integrated a custom GitHub Actions CI/CD pipeline with the TestForge AI test intelligence engine. This integration is designed around a standalone, platform-independent CLI scanner (`scripts/testforge_scanner.py`) that can be executed locally as well as in the cloud.
+
+### Key Capabilities
+- **Line-Level Coverage Gap Analysis**: Rather than relying on simple averages, the scanner maps coverage down to the exact lines added or modified in the current branch compared to `main`.
+- **Weighted Risk Score Calculation**: Automatically computes a risk score (0-100) for every changed file:
+  $$\text{Risk Score} = (0.4 \times \text{Coverage Gap}) + (0.3 \times \text{Complexity}) + (0.2 \times \text{Lines Changed}) + (0.1 \times \text{Modification Frequency})$$
+  Files are graded into `LOW` (< 30), `MEDIUM` (30 - 69), or `HIGH` ($\ge$ 70) risk levels.
+- **Git History & AST Analysis**: Discovers modification frequency (commit history log) and Cyclomatic Complexity (AST node paths) to pinpoint change risks.
+- **Gemini AI Suggestions for PR Gaps**: Automatically extracts functions that contain uncovered modifications and uses Gemini 2.5 Flash to recommend unit test edge cases and pytest assertion code blocks.
+- **Automated PR Quality Reports**: The scanner publishes the markdown report directly to your GitHub Pull Request discussion. Includes anti-spam logic to update its previous comment rather than creating duplicate comments on every push.
+
+### CI/CD Pipeline Configuration (`.github/workflows/testforge_ci.yml`)
+- Triggered on push and pull requests to `main`.
+- Sequentially checks out code, runs pytest with coverage generation, executes the scanner CLI, and uploads outputs as build artifacts.
+- Automatically comments status checks back to PR. Requires the `GEMINI_API_KEY` to be set in your GitHub Repository Secrets.
+
+### Local Scanner Execution
+Developers can run the scanner locally to verify quality metrics before committing:
+```bash
+# 1. Run tests to generate coverage report
+cd backend
+.venv\Scripts\python.exe -m pytest --cov=app --cov-report=json:coverage.json
+
+# 2. Run the scanner CLI against main branch
+cd ..
+backend\.venv\Scripts\python.exe scripts\testforge_scanner.py --coverage backend/coverage.json --diff origin/main --output testforge_report.md
+```
+Open the generated `testforge_report.md` in your workspace.
+
+### Troubleshooting Windows 11 Editor overlays
+If Next.js logs an error `'wmic' is not recognized as an internal or external command`, create a local environment file `frontend/.env.local` to bypass the deprecated Windows wmic check:
+```env
+REACT_EDITOR=code
+```
+
+---
+
 ## 🤝 Contributing
 
 1. Fork the repository
