@@ -353,7 +353,51 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
   };
 
   const handleAppendTest = (code: string) => {
-    setTestContent(prev => prev + "\n\n" + code);
+    // 1. Identify all test function names in the incoming code
+    const functionRegex = /def\s+(test_[a-zA-Z0-9_]+)\b/g;
+    let match;
+    const functionsInCode: string[] = [];
+    while ((match = functionRegex.exec(code)) !== null) {
+      functionsInCode.push(match[1]);
+    }
+
+    if (functionsInCode.length === 0) {
+      // Fallback: If no test functions are found, just append the raw code
+      setTestContent(prev => {
+        const separator = prev.endsWith("\n\n") ? "" : prev.endsWith("\n") ? "\n" : "\n\n";
+        return prev + separator + code.trim();
+      });
+      setActiveTab("tests");
+      return;
+    }
+
+    // 2. Check for duplicate functions against current testContent
+    const duplicates = functionsInCode.filter(funcName => {
+      const escapedFuncName = funcName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`def\\s+${escapedFuncName}\\b`);
+      return regex.test(testContent);
+    });
+
+    if (duplicates.length > 0) {
+      alert(`Duplicate Check: The test function(s) [ ${duplicates.join(", ")} ] are already present in your test suite. Addition skipped to prevent code duplicates.`);
+      return;
+    }
+
+    // 3. Clean the code to extract only the test block (filtering module level imports)
+    const lines = code.split("\n");
+    const cleanedLines = lines.filter(line => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith("import ") && !trimmed.startsWith("from ");
+    });
+    const cleanedCode = cleanedLines.join("\n").trim();
+
+    if (!cleanedCode) return;
+
+    // 4. Append to suite content
+    setTestContent(prev => {
+      const separator = prev.endsWith("\n\n") ? "" : prev.endsWith("\n") ? "\n" : "\n\n";
+      return prev + separator + cleanedCode;
+    });
     setActiveTab("tests");
   };
 
