@@ -36,11 +36,14 @@ def get_recommendations(
     if not project:
         raise HTTPException(status_code=403, detail="Not authorized to access this project")
 
-    # Generate recommendations using Gemini helper
+    # Generate recommendations — pass the full file content as context so
+    # Gemini understands all class definitions and import relationships
     suggestions = suggest_edge_cases(
         code=file_obj.content,
         name=req.name,
-        element_type=req.element_type
+        element_type=req.element_type,
+        full_file_content=file_obj.content
     )
     
     return suggestions
+
