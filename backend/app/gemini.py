@@ -28,14 +28,23 @@ def suggest_edge_cases(code: str, name: str, element_type: str = "function") -> 
         genai.configure(api_key=api_key)
         
         prompt = f"""
-You are an expert QA and test automation engineer.
+You are an expert Principal QA and test automation engineer.
 Analyze the following Python source code and generate 3 to 5 critical edge cases for the {element_type} named `{name}`.
 Think about extreme inputs, empty inputs, type mismatches, exception triggers, and boundary conditions.
 
+Follow these strict industry test automation guidelines:
+1. ASSERTIONS QUALITY: Every generated test must contain meaningful assertions verifying actual outcomes, status changes, and business calculations. Avoid simple placeholder assertions like 'assert True' or 'assert result is not None'.
+2. HAPPY PATH & NEGATIVE PATHS: Generate both positive scenarios (Happy Path) and logical failure or boundary exception scenarios (Negative Paths).
+3. BOUNDARY VALUE ANALYSIS (BVA): Generate test inputs checking bounds, boundary conditions, and numeric limits (e.g. stock limits, quantity bounds).
+4. CONSTRUCTOR INSTANTIATION: Never call class constructors with empty parameters if arguments are required (e.g., do not write 'Product()'). Infer realistic constructor values from the type definitions and field names.
+5. MOCKING DEPENDENCIES: If the target code interacts with or imports other modules/classes (like a PaymentGateway, Database, or API services), use unittest.mock or pytest mock fixtures (mocker) to isolate dependencies.
+6. READABLE NAMES: Use descriptive, clear snake_case test function names specifying exactly what is being tested (e.g., 'test_process_order_with_insufficient_stock').
+7. EXCEPTION TESTING: Use 'with pytest.raises(ExpectedException):' to verify error handling paths.
+
 For each edge case, provide:
 1. A title describing the edge case.
-2. A detailed explanation of why it is an edge case and how to test it.
-3. The exact python test code using `pytest` to verify this case. Ensure imports and mock values are clear and valid.
+2. A detailed explanation of why it is an edgecase and how to test it.
+3. The exact python test code using `pytest` to verify this case. Ensure imports and mock values are clear, valid, and fully defined.
 
 Your entire response MUST be a valid JSON object matching the following structure:
 {{
@@ -43,7 +52,7 @@ Your entire response MUST be a valid JSON object matching the following structur
         {{
             "title": "Title of the edge case",
             "explanation": "Explanation of what is tested and why.",
-            "test_code": "def test_example():\\n    # pytest code here\\n    assert True"
+            "test_code": "def test_example(fixture_dependency):\\n    # pytest code here\\n    assert result == expected_value"
         }}
     ]
 }}

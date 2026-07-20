@@ -6,6 +6,48 @@ def clean_module_name(filename: str) -> str:
     base = os.path.basename(filename)
     return os.path.splitext(base)[0]
 
+def get_smart_default_value(annotation: str, field_name: str = "") -> str:
+    if not annotation:
+        return "None"
+    ann = annotation.strip().lower()
+    
+    # Handle list types
+    if "list" in ann or "iterable" in ann or "[" in ann:
+        return "[]"
+    # Handle dict types
+    if "dict" in ann:
+        return "{}"
+        
+    # Handle primitive type matches
+    if "int" in ann:
+        if "id" in field_name.lower():
+            return "101"
+        if "stock" in field_name.lower():
+            return "10"
+        if "quantity" in field_name.lower() or "qty" in field_name.lower():
+            return "2"
+        return "1"
+    elif "float" in ann or "double" in ann:
+        if "price" in field_name.lower() or "cost" in field_name.lower() or "amount" in field_name.lower() or "rate" in field_name.lower():
+            return "50000.0"
+        return "1.0"
+    elif "str" in ann or "string" in ann:
+        if "name" in field_name.lower():
+            return '"Laptop"'
+        if "email" in field_name.lower():
+            return '"john@example.com"'
+        if "card" in field_name.lower():
+            return '"1234567812345678"'
+        if "expiry" in field_name.lower() or "exp" in field_name.lower():
+            return '"12/30"'
+        if "cvv" in field_name.lower():
+            return '"123"'
+        return '"sample_string"'
+    elif "bool" in ann:
+        return "True"
+        
+    return "None"
+
 def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> str:
     """Generate PyTest file content based on parsed Python module structure."""
     module_name = clean_module_name(filename)
@@ -51,7 +93,7 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                 if arg_name.startswith("*"):
                     continue
                 ann_str = f": {arg['annotation']}" if arg.get("annotation") else ""
-                default_str = f" = {arg['default_value']}" if arg.get("has_default") else " = None"
+                default_str = f" = {arg['default_value']}" if arg.get("has_default") else f" = {get_smart_default_value(arg.get('annotation'), arg_name)}"
                 lines.append(f"    {arg_name}{ann_str}{default_str}")
         
         # Build execution call
@@ -88,6 +130,7 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
     for cls in parsed_structure.get("classes", []):
         class_name = cls["name"]
         methods = cls.get("methods", [])
+        fields = cls.get("fields", [])
         
         lines.append(f"class Test{class_name}:")
         
@@ -117,8 +160,20 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                     lines.append(f"        # - {arg_name}{ann}{default}")
                     
                     # Add default mocked value for constructor
-                    val = arg['default_value'] if arg['has_default'] else "None"
+                    val = arg['default_value'] if arg['has_default'] else get_smart_default_value(arg.get('annotation'), arg_name)
                     init_args_str.append(f"{arg_name}={val}")
+        else:
+            # Check fields if no explicit init method is defined (e.g. dataclasses)
+            if fields:
+                lines.append("        # Constructor fields (dataclass info):")
+                for f in fields:
+                    field_name = f["name"]
+                    ann = f" ({f['annotation']})" if f['annotation'] else ""
+                    default = f" (default: {f['default_value']})" if f['has_default'] else ""
+                    lines.append(f"        # - {field_name}{ann}{default}")
+                    
+                    val = f['default_value'] if f['has_default'] else get_smart_default_value(f.get('annotation'), field_name)
+                    init_args_str.append(f"{field_name}={val}")
                     
         lines.append(f"        return {class_name}({', '.join(init_args_str)})")
         lines.append("")

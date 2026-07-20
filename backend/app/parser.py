@@ -87,14 +87,33 @@ def scan_code(source_code: str) -> Dict[str, Any]:
         # Classes
         elif isinstance(node, ast.ClassDef):
             class_methods = []
+            class_fields = []
             for child in node.body:
                 if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     class_methods.append(parse_function_node(child))
+                elif isinstance(child, ast.AnnAssign):
+                    if isinstance(child.target, ast.Name):
+                        class_fields.append({
+                            "name": child.target.id,
+                            "annotation": ast.unparse(child.annotation) if child.annotation else None,
+                            "has_default": child.value is not None,
+                            "default_value": ast.unparse(child.value) if child.value is not None else None
+                        })
+                elif isinstance(child, ast.Assign):
+                    for target in child.targets:
+                        if isinstance(target, ast.Name):
+                            class_fields.append({
+                                "name": target.id,
+                                "annotation": None,
+                                "has_default": True,
+                                "default_value": ast.unparse(child.value) if child.value is not None else None
+                            })
                     
             classes.append({
                 "name": node.name,
                 "docstring": ast.get_docstring(node),
                 "methods": class_methods,
+                "fields": class_fields,
                 "lineno": node.lineno,
                 "end_lineno": node.end_lineno
             })
