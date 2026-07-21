@@ -49,7 +49,7 @@ def get_smart_default_value(annotation: str, field_name: str = "") -> str:
         
     return "None"
 
-def generate_test_template(filename: str, parsed_structure: Dict[str, Any], project_class_map: Dict[str, Any] = None) -> str:
+def generate_test_template(filename: str, parsed_structure: Dict[str, Any], project_class_map: Dict[str, Any] = None, source_code: str = "") -> str:
     """Generate PyTest file content based on parsed Python module structure and project-wide class registry."""
     module_name = clean_module_name(filename)
     project_class_map = project_class_map or {}
@@ -305,12 +305,22 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
             for f in fields:
                 f_name = f["name"]
                 default_val = f.get("default_value")
-                has_post_init = any(m["name"] == "__post_init__" for m in methods)
+                
+                # Check for post_init assignments in source code
+                post_init = next((m for m in methods if m["name"] == "__post_init__"), None)
+                has_post_init_assignment = False
+                if post_init and source_code:
+                    lines_src = source_code.splitlines()
+                    start = post_init["lineno"] - 1
+                    end = post_init["end_lineno"]
+                    if start >= 0 and end <= len(lines_src):
+                        post_init_src = "\n".join(lines_src[start:end])
+                        if f"self.{f_name}" in post_init_src:
+                            has_post_init_assignment = True
                 
                 if f.get("has_default") and default_val != "None" and not default_val.strip().startswith("field("):
                     lines.append(f"        assert {fixture_name}.{f_name} == {default_val}")
-                elif default_val == "None" and has_post_init:
-                    # If it has a post_init, it might get initialized to a non-None value
+                elif default_val == "None" and has_post_init_assignment:
                     lines.append(f"        assert {fixture_name}.{f_name} is not None")
                 elif default_val == "None":
                     lines.append(f"        assert {fixture_name}.{f_name} is None")

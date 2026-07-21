@@ -51,7 +51,7 @@ def generate_tests_for_file(
                 cls_info["module_name"] = clean_module_name(pf.filename)
                 project_class_map[cls["name"]] = cls_info
 
-    test_content = generate_test_template(filename, parsed, project_class_map)
+    test_content = generate_test_template(filename, parsed, project_class_map, file_obj.content)
     
     test_filename = f"test_{clean_module_name(filename)}.py"
 
