@@ -223,29 +223,44 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
     
     setUploadLoading(true);
-    const form = new FormData();
-    form.append("file", file);
-
+    const filesArray = Array.from(e.target.files);
+    
     try {
-      const result = await apiRequest(`/projects/${projectId}/upload`, {
-        method: "POST",
-        body: form,
-      });
+      let lastResult = null;
+      const uploadedFiles = [];
+
+      for (const file of filesArray) {
+        const form = new FormData();
+        form.append("file", file);
+        
+        const result = await apiRequest(`/projects/${projectId}/upload`, {
+          method: "POST",
+          body: form,
+        });
+        lastResult = result;
+        uploadedFiles.push(result.file);
+      }
 
       // Update files list
       setFiles(prev => {
-        const exists = prev.some(f => f.filename === result.file.filename);
-        if (exists) {
-          return prev.map(f => f.filename === result.file.filename ? result.file : f);
-        }
-        return [...prev, result.file];
+        const newFiles = [...prev];
+        uploadedFiles.forEach(uploaded => {
+          const idx = newFiles.findIndex(f => f.filename === uploaded.filename);
+          if (idx !== -1) {
+            newFiles[idx] = uploaded;
+          } else {
+            newFiles.push(uploaded);
+          }
+        });
+        return newFiles;
       });
 
-      setSelectedFile(result.file);
-      handleSelectFile(result.file);
+      if (lastResult) {
+        setSelectedFile(lastResult.file);
+        handleSelectFile(lastResult.file);
+      }
     } catch (err: any) {
       alert(err.message || "Failed to upload file");
     } finally {
@@ -371,20 +386,32 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
       return;
     }
 
-    // 2. Check for duplicate functions against current testContent
-    const duplicates = functionsInCode.filter(funcName => {
+    // 2. Auto-rename duplicate functions against current testContent
+    let modifiedCode = code;
+    functionsInCode.forEach(funcName => {
       const escapedFuncName = funcName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      const regex = new RegExp(`def\\s+${escapedFuncName}\\b`);
-      return regex.test(testContent);
+      const regexTestContent = new RegExp(`def\\s+${escapedFuncName}\\b`);
+      
+      if (regexTestContent.test(testContent)) {
+        let suffix = 1;
+        let newFuncName = `${funcName}_${suffix}`;
+        while (
+          new RegExp(`def\\s+${newFuncName}\\b`).test(testContent) ||
+          new RegExp(`def\\s+${newFuncName}\\b`).test(modifiedCode)
+        ) {
+          suffix++;
+          newFuncName = `${funcName}_${suffix}`;
+        }
+        
+        // Replace `def funcName` with `def newFuncName` in the modifiedCode
+        const replaceRegex = new RegExp(`def\\s+(${escapedFuncName})\\b`, 'g');
+        modifiedCode = modifiedCode.replace(replaceRegex, `def ${newFuncName}`);
+        console.log(`Auto-renamed duplicate test function ${funcName} to ${newFuncName}`);
+      }
     });
 
-    if (duplicates.length > 0) {
-      alert(`Duplicate Check: The test function(s) [ ${duplicates.join(", ")} ] are already present in your test suite. Addition skipped to prevent code duplicates.`);
-      return;
-    }
-
     // 3. Clean the code to extract only the test block (filtering module level imports)
-    const lines = code.split("\n");
+    const lines = modifiedCode.split("\n");
     const cleanedLines = lines.filter(line => {
       const trimmed = line.trim();
       return !trimmed.startsWith("import ") && !trimmed.startsWith("from ");
@@ -695,6 +722,7 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
                       onChange={handleFileUpload}
                       disabled={uploadLoading}
                       className="hidden"
+                      multiple
                     />
                   </label>
                 </div>

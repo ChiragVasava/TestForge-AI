@@ -30,7 +30,19 @@ def _extract_imports_from_source(source_code: str) -> list[str]:
     except Exception:
         return []
 
-def _clean_generated_code(code: str, source_imports: list[str], module_name: str) -> str:
+def _extract_defined_names_from_source(source_code: str) -> list[str]:
+    """Parse source file and extract names of all top-level classes and functions defined in it."""
+    try:
+        tree = ast.parse(source_code)
+        names = []
+        for node in tree.body:
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                names.append(node.name)
+        return names
+    except Exception:
+        return []
+
+def _clean_generated_code(code: str, source_imports: list[str], defined_names: list[str], module_name: str) -> str:
     """
     Post-process Gemini's generated test code to fix common LLM mistakes:
     1. Remove any class/dataclass redefinitions that duplicate source code.
@@ -43,7 +55,7 @@ def _clean_generated_code(code: str, source_imports: list[str], module_name: str
     indent_level = 0
 
     # Build a set of class names defined in the source for redefinition detection
-    source_class_names = set()
+    source_class_names = set(defined_names)
     for imp in source_imports:
         # e.g. "from models import Product, OrderItem" -> {"Product", "OrderItem"}
         if "import" in imp:
@@ -114,6 +126,7 @@ def suggest_edge_cases(
 
     # Extract imports from the full source file for post-processing
     source_imports = _extract_imports_from_source(full_file_content or code)
+    defined_names = _extract_defined_names_from_source(full_file_content or code)
 
     # Build the context block for the prompt
     context_block = ""
@@ -213,6 +226,7 @@ CRITICAL: Return only the raw JSON. Do not wrap the output in markdown code bloc
                     suggestion["test_code"] = _clean_generated_code(
                         suggestion["test_code"],
                         source_imports,
+                        defined_names,
                         name
                     )
 
