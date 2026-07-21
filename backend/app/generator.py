@@ -83,13 +83,14 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
                     required_imports_map[mod_name].add(cls_name)
 
     # 1. Resolve Fixtures Dependency Graph
-    # Identify which class fixtures need to be generated (excluding ABCs and Exceptions)
+    # Identify which class fixtures need to be generated (excluding ABCs, Exceptions, and Enums)
     fixtures_to_generate = set()
     for cls in parsed_structure.get("classes", []):
         bases = cls.get("bases", [])
         is_abc = any("ABC" in b or "abc.ABC" in b for b in bases)
         is_exception = cls.get("is_exception", False)
-        if not is_abc and not is_exception:
+        is_enum = cls.get("is_enum", False)
+        if not is_abc and not is_exception and not is_enum:
             fixtures_to_generate.add(cls["name"])
             
     # Traversal to find dependencies and add them to generation list
@@ -131,7 +132,8 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
                         dep_bases = dep_info.get("bases", [])
                         dep_is_abc = any("ABC" in b or "abc.ABC" in b for b in dep_bases)
                         dep_is_exception = dep_info.get("is_exception", False)
-                        if not dep_is_abc and not dep_is_exception:
+                        dep_is_enum = dep_info.get("is_enum", False)
+                        if not dep_is_abc and not dep_is_exception and not dep_is_enum:
                             if dep not in visited:
                                 visited.add(dep)
                                 queue.append(dep)
@@ -285,8 +287,9 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
         bases = cls.get("bases", [])
         is_abc = any("ABC" in b or "abc.ABC" in b for b in bases)
         is_exception = cls.get("is_exception", False)
+        is_enum = cls.get("is_enum", False)
         
-        if is_abc or is_exception:
+        if is_abc or is_exception or is_enum:
             continue
             
         methods = cls.get("methods", [])
@@ -301,8 +304,16 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
             lines.append(f"    def test_initialization(self, {fixture_name}):")
             for f in fields:
                 f_name = f["name"]
-                if f.get("has_default") and not f.get("default_value", "").strip().startswith("field("):
-                    lines.append(f"        assert {fixture_name}.{f_name} == {f['default_value']}")
+                default_val = f.get("default_value")
+                has_post_init = any(m["name"] == "__post_init__" for m in methods)
+                
+                if f.get("has_default") and default_val != "None" and not default_val.strip().startswith("field("):
+                    lines.append(f"        assert {fixture_name}.{f_name} == {default_val}")
+                elif default_val == "None" and has_post_init:
+                    # If it has a post_init, it might get initialized to a non-None value
+                    lines.append(f"        assert {fixture_name}.{f_name} is not None")
+                elif default_val == "None":
+                    lines.append(f"        assert {fixture_name}.{f_name} is None")
                 else:
                     lines.append(f"        assert {fixture_name}.{f_name} is not None")
             lines.append("")

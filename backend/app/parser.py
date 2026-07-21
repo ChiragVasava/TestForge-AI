@@ -2,9 +2,13 @@ import ast
 from typing import Dict, Any
 
 def _find_return_expr(body_nodes: list) -> str | None:
-    for node in body_nodes:
+    # First, look for a top-level return statement (scanning backwards)
+    for node in reversed(body_nodes):
         if isinstance(node, ast.Return):
             return ast.unparse(node.value) if node.value else "None"
+    
+    # If no top-level return, search recursively (backwards)
+    for node in reversed(body_nodes):
         if hasattr(node, "body") and isinstance(node.body, list):
             ret = _find_return_expr(node.body)
             if ret: return ret
@@ -141,11 +145,13 @@ def scan_code(source_code: str) -> Dict[str, Any]:
                     
             class_bases = [ast.unparse(b) for b in node.bases]
             is_exception = any("Exception" in b or "Error" in b for b in class_bases) or node.name.endswith("Error") or node.name.endswith("Exception")
+            is_enum = any("Enum" in b for b in class_bases) or node.name.endswith("Status") or node.name.endswith("Type")
             
             classes.append({
                 "name": node.name,
                 "bases": class_bases,
                 "is_exception": is_exception,
+                "is_enum": is_enum,
                 "docstring": ast.get_docstring(node),
                 "methods": class_methods,
                 "fields": class_fields,
