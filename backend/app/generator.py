@@ -129,6 +129,12 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
     # Generate tests for classes
     for cls in parsed_structure.get("classes", []):
         class_name = cls["name"]
+        bases = cls.get("bases", [])
+        
+        # Skip Abstract Base Classes (ABCs) as they cannot be instantiated directly
+        if any("ABC" in b or "abc.ABC" in b for b in bases):
+            continue
+            
         methods = cls.get("methods", [])
         fields = cls.get("fields", [])
         
@@ -161,6 +167,8 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                     
                     # Add default mocked value for constructor
                     val = arg['default_value'] if arg['has_default'] else get_smart_default_value(arg.get('annotation'), arg_name)
+                    if val and val.strip().startswith("field("):
+                        continue
                     init_args_str.append(f"{arg_name}={val}")
         else:
             # Check fields if no explicit init method is defined (e.g. dataclasses)
@@ -173,6 +181,8 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                     lines.append(f"        # - {field_name}{ann}{default}")
                     
                     val = f['default_value'] if f['has_default'] else get_smart_default_value(f.get('annotation'), field_name)
+                    if val and val.strip().startswith("field("):
+                        continue
                     init_args_str.append(f"{field_name}={val}")
                     
         lines.append(f"        return {class_name}({', '.join(init_args_str)})")

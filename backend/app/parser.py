@@ -111,6 +111,7 @@ def scan_code(source_code: str) -> Dict[str, Any]:
                     
             classes.append({
                 "name": node.name,
+                "bases": [ast.unparse(b) for b in node.bases],
                 "docstring": ast.get_docstring(node),
                 "methods": class_methods,
                 "fields": class_fields,
