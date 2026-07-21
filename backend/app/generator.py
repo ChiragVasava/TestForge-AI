@@ -118,7 +118,9 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
         # Build assertion
         lines.append("    # Assert")
         ret_type_clean = return_type.lower() if return_type else ""
-        if "bool" in ret_type_clean:
+        if "none" == ret_type_clean or "nonetype" == ret_type_clean:
+            lines.append("    assert result is None")
+        elif "bool" in ret_type_clean:
             lines.append("    assert result in [True, False]")
         else:
             lines.append("    assert result is not None  # Replace with actual expected values")
@@ -244,7 +246,9 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                 
             lines.append("        # Assert")
             ret_type_clean = return_type.lower() if return_type else ""
-            if "bool" in ret_type_clean:
+            if "none" == ret_type_clean or "nonetype" == ret_type_clean:
+                lines.append("        assert result is None")
+            elif "bool" in ret_type_clean:
                 lines.append("        assert result in [True, False]")
             else:
                 lines.append("        assert result is not None")
