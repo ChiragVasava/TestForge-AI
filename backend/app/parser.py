@@ -1,6 +1,33 @@
 import ast
 from typing import Dict, Any
 
+def _find_return_expr(body_nodes: list) -> str | None:
+    for node in body_nodes:
+        if isinstance(node, ast.Return):
+            return ast.unparse(node.value) if node.value else "None"
+        if hasattr(node, "body") and isinstance(node.body, list):
+            ret = _find_return_expr(node.body)
+            if ret: return ret
+        if hasattr(node, "orelse") and isinstance(node.orelse, list):
+            ret = _find_return_expr(node.orelse)
+            if ret: return ret
+    return None
+
+def _find_raised_exceptions(body_nodes: list) -> list[str]:
+    exceptions = []
+    for node in body_nodes:
+        if isinstance(node, ast.Raise):
+            if node.exc:
+                if isinstance(node.exc, ast.Call):
+                    exceptions.append(ast.unparse(node.exc.func))
+                else:
+                    exceptions.append(ast.unparse(node.exc))
+        if hasattr(node, "body") and isinstance(node.body, list):
+            exceptions.extend(_find_raised_exceptions(node.body))
+        if hasattr(node, "orelse") and isinstance(node.orelse, list):
+            exceptions.extend(_find_raised_exceptions(node.orelse))
+    return list(set(exceptions))
+
 def parse_function_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Dict[str, Any]:
     """Extract metadata from a function or method AST node."""
     # Arguments
@@ -55,6 +82,8 @@ def parse_function_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Dict[st
         "args": args,
         "return_type": ast.unparse(node.returns) if node.returns else None,
         "decorators": [ast.unparse(d) for d in node.decorator_list],
+        "return_expr": _find_return_expr(node.body),
+        "raises": _find_raised_exceptions(node.body),
         "docstring": ast.get_docstring(node),
         "lineno": node.lineno,
         "end_lineno": node.end_lineno
@@ -110,9 +139,13 @@ def scan_code(source_code: str) -> Dict[str, Any]:
                                 "default_value": ast.unparse(child.value) if child.value is not None else None
                             })
                     
+            class_bases = [ast.unparse(b) for b in node.bases]
+            is_exception = any("Exception" in b or "Error" in b for b in class_bases) or node.name.endswith("Error") or node.name.endswith("Exception")
+            
             classes.append({
                 "name": node.name,
-                "bases": [ast.unparse(b) for b in node.bases],
+                "bases": class_bases,
+                "is_exception": is_exception,
                 "docstring": ast.get_docstring(node),
                 "methods": class_methods,
                 "fields": class_fields,
