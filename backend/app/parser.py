@@ -54,6 +54,7 @@ def parse_function_node(node: ast.FunctionDef | ast.AsyncFunctionDef) -> Dict[st
         "is_async": isinstance(node, ast.AsyncFunctionDef),
         "args": args,
         "return_type": ast.unparse(node.returns) if node.returns else None,
+        "decorators": [ast.unparse(d) for d in node.decorator_list],
         "docstring": ast.get_docstring(node),
         "lineno": node.lineno,
         "end_lineno": node.end_lineno

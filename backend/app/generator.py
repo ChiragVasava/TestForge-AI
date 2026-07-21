@@ -236,7 +236,13 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any]) -> s
                 else:
                     args_call.append(f"{arg_name}={arg_name}")
             
-            call_str = f"{fixture_name}.{m_name}({', '.join(args_call)})"
+            decorators = m.get("decorators", [])
+            is_property = "property" in decorators
+            
+            if is_property:
+                call_str = f"{fixture_name}.{m_name}"
+            else:
+                call_str = f"{fixture_name}.{m_name}({', '.join(args_call)})"
             
             lines.append("        # Act")
             if is_async:
