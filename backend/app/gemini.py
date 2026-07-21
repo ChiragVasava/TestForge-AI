@@ -199,10 +199,18 @@ Your entire response MUST be a valid JSON object matching the following structur
 CRITICAL: Return only the raw JSON. Do not wrap the output in markdown code blocks like ```json ... ``` or standard ```. Do not add any text before or after the JSON.
 """
 
-        # Use Pro model for better instruction-following
-        model = genai.GenerativeModel("gemini-2.5-pro")
-
-        response = model.generate_content(prompt)
+        # Use Pro model for better instruction-following with fallback to Flash if rate-limited (429)
+        try:
+            model = genai.GenerativeModel("gemini-2.5-pro")
+            response = model.generate_content(prompt)
+        except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "quota" in err_str or "limit" in err_str or "exhausted" in err_str:
+                print("Gemini 2.5 Pro rate limit exceeded, falling back to Gemini 2.5 Flash...")
+                model = genai.GenerativeModel("gemini-2.5-flash")
+                response = model.generate_content(prompt)
+            else:
+                raise e
         text = response.text.strip()
 
         # Safety clean if model returns markdown wrapping
