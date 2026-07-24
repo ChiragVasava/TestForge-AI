@@ -229,7 +229,7 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
     
     try {
       let lastResult = null;
-      const uploadedFiles = [];
+      const uploadedFiles: any[] = [];
 
       for (const file of filesArray) {
         const form = new FormData();

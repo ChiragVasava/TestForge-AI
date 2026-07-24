@@ -20,6 +20,7 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:3002",
+    "https://testforge-ai-lime.vercel.app",
 ]
 
 # Support custom frontend URLs for CORS in production
