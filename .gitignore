@@ -41,7 +41,6 @@ Thumbs.db
 *.log
 
 # Project Documentation
-MD_Files/
 **/.env
 **/.env.local
 
