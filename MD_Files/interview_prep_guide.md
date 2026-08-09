@@ -1,122 +1,275 @@
-# TestForge AI - Campus Placement Interview Preparation Guide
+# TestForge AI - Comprehensive Interview Preparation & Codebase Walkthrough
 
-This guide is designed to help you confidently present **TestForge AI** in software engineering, QA, and DevOps interviews.
-
----
-
-## 1. The 30-Second Elevator Pitch
-
-> *"I built **TestForge AI**, an Intelligent Test Automation and Quality Intelligence platform. It bridges the gap between developers and QA teams by automating unit test generation and browser automation. For developers, it parses code structure using Abstract Syntax Trees (AST) to generate PyTest suites and recommends AI-driven boundary checks. For QA teams, it compiles manual English test cases into parameterized Playwright scripts. Additionally, it integrates a platform-independent Scanner CLI with GitHub Actions to enforce coverage gates and post quality reports directly onto Pull Requests."*
+This document is your master reference manual to prepare for technical interviews and project defenses. It maps every component of TestForge AI using details directly from your active codebase.
 
 ---
 
-## 2. Technology Stack & Design Rationale
-Be prepared to explain *why* you chose your technologies:
+## 1. Actual Technology Stack
 
-| Component | Technology | Why This Choice? (Interview Pitch) |
-| :--- | :--- | :--- |
-| **Frontend** | **Next.js (App Router, Tailwind, TS)** | Next.js App Router provides optimal client-side state transitions, server-side page speed benefits, and strict TypeScript types to eliminate runtime syntax errors. Tailwind allowed me to build a premium, glassmorphism-based dark mode console workspace. |
-| **Backend** | **FastAPI (Python)** | FastAPI is extremely lightweight, natively asynchronous (crucial for long-running test execution tasks), and automatically compiles OpenAPI (Swagger) specifications for clear API contracts. |
-| **Database** | **SQLAlchemy + SQLite** | SQLite is file-based and zero-configuration, which makes the project fully self-contained. SQLAlchemy is used as the ORM to decouple database structures from raw SQL, making it easily migratable to PostgreSQL in production. |
-| **Automation** | **Playwright (Python)** | Playwright is faster and more stable than legacy tools like Selenium. It has auto-wait assertions, handles single-page apps natively, and generates clean browser automation scripts. |
-| **AI Engine** | **Gemini 2.5 Flash** | I chose Gemini 2.5 Flash because of its large context window, fast inference speeds, and exceptional performance at generating structural code format (JSON payloads and scripts). |
+### Frontend (Client-side Console)
+*   **Next.js 16.2.6** (React 19 framework) configured with Turbopack for asset compilation.
+*   **React 19.2.4 & ReactDOM 19.2.4** (Core component architecture).
+*   **TailwindCSS v4** (Utility-first styling engine with customized PostCSS).
+*   **TypeScript 5.x** (Strict compilation and statically-typed templates).
+*   **Recharts v3.8.1** (Interactive SVG graphing library for metrics).
+*   **Lucide React v1.17.0** (Vector iconography).
 
----
+### Backend (Web Server & Intelligence Engine)
+*   **FastAPI** (High-performance ASGI API framework).
+*   **Uvicorn** (ASGI server wrapper).
+*   **Pydantic** (JSON request/response serialization and schema enforcement).
+*   **SQLAlchemy** (SQL Declarative ORM mapper).
+*   **python-jose** (JWT token signing & cryptographic validation).
+*   **passlib[bcrypt]** (Password hashing operations).
+*   **python-multipart** (Form-data multipart parser).
 
-## 3. Core Technical Deep Dives (How It Works)
+### AI Engine & Integrations
+*   **Google Generative AI Python SDK** (`google-generativeai`): Connects to `gemini-2.5-pro` (primary) and `gemini-2.5-flash` (fallback).
 
-### A. The AST Code Parser (`parser.py`)
-*   **What it does:** Scans uploaded files to discover classes, functions, constructor args, and types.
-*   **The Interview Talking Point:** *"Instead of importing and running raw code—which introduces severe remote code execution security risks—I parsed the code statically into an Abstract Syntax Tree (AST) using Python's native `ast` library. This allows the system to read code structure securely without executing it."*
+### Testing & Verification Pipeline
+*   **pytest** (Core testing harness).
+*   **pytest-cov** (Statement line coverage reporter, outputs `coverage.json`).
+*   **pytest-asyncio** (Coroutines execution support).
 
-### B. Isolated Sandbox Executor (`executor.py`)
-*   **What it does:** Runs unit tests and measures line-level coverage.
-*   **The Interview Talking Point:** *"To run tests securely, the backend writes project files to an isolated directory, spawns a subprocess running `pytest --cov`, and reads the output coverage report. If a user uploads broken code, it runs in an isolated runner context and won't crash our core web server."*
+### Scripts & DevOps Orchestration
+*   **Python `ast` library**: Core AST node compiler and code crawler.
+*   **urllib.request & urllib.parse**: Zero-dependency networking for CI comments.
+*   **Git / Git CLI**: Git-diff line analysis and repository log history checks.
 
-### C. The Standalone Quality Scanner CLI (`testforge_scanner.py`)
-*   **What it does:** Computes line-level PR coverage, calculates risk scores, and queries Gemini.
-*   **The Interview Talking Point:** *"I designed the scanner CLI to be platform-independent. It does not require GitHub Actions to run. A developer can run it locally in pre-commit git hooks, or it can be ported to GitLab CI, Jenkins, or Azure Pipelines. It normalcy-checks paths, maps line coverage gaps, and uses AST to find Cyclomatic Complexity (the number of decision branches in code)."*
-
-### D. The Risk Score Algorithm
-*   **How it works:**
-    $$\text{Risk Score} = (0.4 \times \text{Coverage Gap}) + (0.3 \times \text{Complexity}) + (0.2 \times \text{Lines Changed}) + (0.1 \times \text{Modification Frequency})$$
-*   **The Interview Talking Point:** *"I created a custom risk assessment algorithm. It weighs four critical software metrics: the test coverage gap, the code complexity (AST decision node count), the scale of the change (lines edited), and the churn frequency (number of commits in git log history). This gives release managers a single mathematical grade of the risk introduced in a commit."*
-
----
-
-## 4. Tricky Interview Questions & Answers
-
-### Q1: "Why build your own PyTest generator instead of just using GitHub Copilot?"
-*   **Answer:** *"Copilot is a generic autocompletion editor extension. TestForge AI is an enterprise quality orchestration platform. It does not just write the boilerplate; it executes the tests in a sandbox, tracks line-level code coverage, maps gaps, and maintains a historical dashboard of test runs, making test generation part of a unified team workspace rather than a single developer's keyboard."*
-
-### Q2: "How did you prevent remote code execution attacks when running pytest in your sandbox?"
-*   **Answer:** *"For this project, I isolated runs into unique temporary folders and executed them as child subprocesses using low-privilege environment configurations. For a production deployment, I would package the executor module inside lightweight Docker containers or AWS Lambda sandboxes to ensure absolute OS-level isolation."*
-
-### Q3: "How did you manage Gemini API rate limits and network latency in your CI/CD runner?"
-*   **Answer:** *"Instead of calling the Gemini API in a loop for every low-coverage function—which causes network bottlenecks and rate limit exceptions—I bundled the source code and coverage metadata of all modified functions into a single, structured JSON request payload. This reduced our API calls to exactly one per build runner execution."*
-
-### Q4: "What is a challenging bug you solved during development?"
-*   **Answer:** (Choose one of these real bugs we solved together)
-    *   **The Windows 11 Editor Overlay Panic:** *"On Windows 11, the `wmic` tool is deprecated and removed. When clicking Next.js console errors, the system crashed trying to query editors via `wmic`. I resolved this by bypassing the `launch-editor` tool's automated discovery and setting `REACT_EDITOR=code` directly in our local environment configuration."*
-    *   **CORS Preflight Failures in Multi-Environment Deployment:** *"When we deployed the backend to Render and the frontend to Vercel, the browser blocked login API requests due to CORS preflight options checks. I solved this by implementing a dynamic CORS middleware in FastAPI that normalizes incoming origin headers, strips trailing slashes, and checks them against whitelist subdomains."*
+### Environment & Database Config
+*   **SQLite**: File-based SQL storage engine.
+*   **python-dotenv**: Loads variables from `.env`.
 
 ---
 
-## 5. How to Write This on Your Resume
+## 2. Complete Project Architecture
 
-Add these high-impact bullet points to your resume under "Projects" or "Work Experience":
+The TestForge AI architecture follows a decoupled client-server pattern. The frontend handles console presentation, while the backend hosts the intelligence and execution layers:
 
-*   **Developed TestForge AI**, a full-stack test intelligence platform using **FastAPI**, **Next.js (TypeScript)**, and **SQLAlchemy** to automate test generation and browser automation.
-*   **Engineered an AST Code Parser** using Python’s native abstract syntax tree libraries to statically analyze python structures and auto-generate boilerplate **PyTest** test suites.
-*   **Integrated Google Gemini 2.5 Flash API** to generate targeted unit-test boundary assertions and translate English QA specifications into parameterized **Playwright** browser automation scripts.
-*   **Authored a standalone Python Scanner CLI** that hooks into **GitHub Actions CI/CD** to run test coverage metrics on changed lines, calculate Cyclomatic Complexity, compute commit-frequency risk scores, and dynamically publish reports back to PR comments.
-*   **Implemented a custom API commenting engine** using python's standard libraries with anti-spam overwrite hooks to update existing GitHub Pull Request comments.
+```mermaid
+graph TD
+    User[Developer / QA Engineer] -->|Access Web App| Frontend[Next.js Frontend]
+    Frontend -->|HTTP Requests / File Uploads| Backend[FastAPI Backend Server]
+    
+    subgraph FastAPI Backend
+        Auth[Auth Router / Jose] -->|User Session JWT| DB[(SQLite Database)]
+        ProjectRouter[Projects Router] -->|Upload / Manage Files| DB
+        
+        subgraph Intelligence Layer
+            Parser[AST Code Parser / parser.py]
+            Gen[PyTest Template Generator / generator.py]
+            Exec[Sandbox Executor / executor.py]
+            Gemini[AI Recommendation Service / gemini.py]
+        end
+        
+        ProjectRouter -->|Process Source Code| Parser
+        Gen -->|Topological Fixtures & Smart Mocks| Exec
+        Exec -->|Subprocess spawn pytest| Sandbox[Temp Run Sandbox Directory]
+        Gemini -->|Bundled prompt + fallback| GeminiAPI[Google Gemini API]
+    end
 
-### Question : can this testforge ai can also test for others langaues project like typescript, javasript, java, c++,c ? what are its limits ?
-
-This is a classic and very important question that interviewers might ask during a project defense. 
-
-Here is a detailed breakdown of how TestForge AI handles other languages, where its architectural limits lie, and how to explain this in an interview.
-
----
-
-### 1. Can TestForge AI test other languages?
-
-The short answer is **partially**:
-
-*   **For Frontend / QA Browser Testing (Yes):** 
-    The **Playwright Script Generator** can test web applications built in *any* language (TypeScript, JavaScript, Java, PHP, C#, etc.). This is because Playwright interacts with the browser's rendered HTML/DOM. As long as the website runs on a URL (like `http://localhost:3000`), the language used to build the backend does not matter.
-*   **For Backend / Unit Testing (No - Python Only):**
-    The static code analysis, automatic test template generation, and code coverage execution are currently **strictly built for Python**.
-
----
-
-### 2. Why is the Backend limited to Python? (Architectural Limits)
-
-To support languages like Java, C++, or JavaScript for unit testing, you would need to rewrite or expand three core modules of the backend:
-
-1.  **AST Parser (`parser.py`):** 
-    It uses Python's native `ast` library, which only understands Python syntax. To support TypeScript or Java, you would need a custom parser for those languages (like Babel for JS/TS, or `javalang` for Java) to extract classes and function nodes.
-2.  **Code Generator (`generator.py`):** 
-    It compiles `pytest` templates. To support JS/TS, you would need it to write Jest/Mocha boilerplate; for Java, JUnit; and for C++, GoogleTest.
-3.  **Sandbox Executor (`executor.py`):** 
-    It runs `pytest --cov` as a python subprocess. To run TypeScript, you would need the Node.js runtime installed in the sandbox. For C++ or Java, you would need compilation tools (GCC, CMake, or JDK/Maven) before the tests can even run.
+    subgraph CI/CD Pipeline
+        Runner[GitHub Actions runner] -->|Runs local tests| PyTestRunner[pytest --cov]
+        PyTestRunner -->|Generates coverage.json| Scanner[testforge_scanner.py]
+        Scanner -->|Calculates Risk Score| Scanner
+        Scanner -->|GitHub API Comments| PR[GitHub Pull Request Page]
+    end
+```
 
 ---
 
-### 3. What are the general limits of the current platform?
+## 3. Important Folders and Files
 
-If an interviewer asks: *"What are the limitations of your project, and how would you scale it?"*, you can confidently list these three points:
+### Backend (`/backend`)
+*   [main.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/main.py): Sets up the FastAPI app, whitelists CORS domains, and mounts routes under the `/api` prefix.
+*   [database.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/database.py): Configures SQLAlchemy engine, session pools (`SessionLocal`), and registers the `get_db` dependency.
+*   [models.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/models.py): Defines the database schema tables.
+*   [schemas.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/schemas.py): Houses Pydantic schemas validating user, file, and test run payloads.
+*   [parser.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/parser.py): Compiles python source files into AST structures to extract class bases, decorators, returns, and exceptions.
+*   [generator.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/generator.py): Translates AST metadata structures into syntactically valid pytest files.
+*   [executor.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/executor.py): Handles sandbox script creations and runs pytest subprocesses.
+*   [gemini.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/gemini.py): Handles interaction with the Google Generative AI API, implementing fallbacks and output cleaning.
+*   `routers/`: Splitted feature endpoints:
+    *   [auth.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/routers/auth.py): Handles user registration, JWT logins, and current user retrieval.
+    *   [projects.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/routers/projects.py): Handles uploading files and project workspaces.
+    *   [tests.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/routers/tests.py): Orchestrates template generation, file saving, and test execution.
+    *   [ai.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/backend/app/routers/ai.py): Recommends edge cases for classes or functions.
 
-#### A. Execution Sandbox Security (Local vs. Containerized)
-*   **Current Limit:** The backend executes pytest suites locally in a temporary directory (`backend/temp_runs/`) as a subprocess.
-*   **The Risk:** If a user uploads a malicious Python file containing commands like `os.system("rm -rf /")` or code to extract environment keys, it will run directly on the host server.
-*   **Scale Solution:** *"In a production SaaS environment, I would isolate the test execution module inside micro-containers (like Docker) or sandbox execution environments (like AWS Lambda) to ensure strict OS-level isolation."*
+### Frontend (`/frontend`)
+*   [src/lib/api.ts](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/frontend/src/lib/api.ts): Central API client handling authentication header injection and global 401 logouts.
+*   [src/app/projects/\[id\]/page.tsx](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/frontend/src/app/projects/%5Bid%5D/page.tsx): Main console interface containing file sidebars, source code views, recommendation cards, and test execution outputs.
 
-#### B. Mocking Complex Dependencies
-*   **Current Limit:** The engine works best for self-contained business logic (like math utilities, calculation models, parser structures). If a python file relies on external databases, third-party APIs (like payment gateways), or active network resources, the tests will fail in the sandbox.
-*   **Scale Solution:** *"I would implement an automatic mocking generator using Gemini to identify network/DB calls and write mock definitions or inject mock database containers (like Testcontainers)."*
+### CI/CD & Scripts (`/`)
+*   [scripts/testforge_scanner.py](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/scripts/testforge_scanner.py): Standalone CLI scanner calculating AST complexity, git diff risks, and posting PR comments.
+*   [.github/workflows/testforge_ci.yml](file:///C:/Users/Chirag%20Vasava/Downloads/Personal/Final%20Projects/TestForge/.github/workflows/testforge_ci.yml): Enforces quality gates by executing the scanner CLI on commit.
 
-#### C. Gemini Token Context Limits
-*   **Current Limit:** For massive legacy codebases with files containing thousands of lines of code, sending the entire file to the Gemini API for edge cases is inefficient and can exceed token limits.
-*   **Scale Solution:** *"To scale, I would slice the files dynamically and only send the specific functions that were changed (based on the Git diff), rather than transmitting the entire source codebase."*
+---
+
+## 4. Major Application Modules
+
+1.  **Auth & Session Manager**: Issues signed JWT access tokens when users register or verify credentials.
+2.  **Project Registry & Workspace File Manager**: Receives code files via multipart forms, saving them to SQLite.
+3.  **AST Parser Module**: Evaluates Python syntax trees without executing code, outputting class/method nodes, annotations, exception raises, and return expressions.
+4.  **PyTest Generator Engine**: Computes class dependencies, creates topologically ordered fixture signatures, generates mocks, asserts return types, and outputs valid test files.
+5.  **Isolated Execution Sandbox**: Spawns isolated subprocess tasks that execute pytest and coverage modules, reading execution logs.
+6.  **AI recommendation & Fallback Service**: Connects to the Gemini API, falling back to Flash if Pro limits are reached, and post-processes outputs to remove duplicate declarations.
+7.  **CI/CD Scanner CLI**: Run on local machines or GitHub Actions to calculate risk indexes and post comments to pull requests.
+
+---
+
+## 5. End-to-End Data Flow
+
+Here is how data travels when a developer requests a test suite run:
+
+1.  **Upload**: The frontend client selects and uploads multiple source files. They are stored in SQLite (`project_files` table).
+2.  **AST Parsing**: Clicking "Generate Base PyTest" fires a request to `/api/tests/{project_id}/generate`. The backend compiles a registry of all classes in the project, extracts properties, and passes them to the generator.
+3.  **PyTest Code Assembly**: The generator computes fixture dependencies, formats mocks, constructs assertions, and returns the assembled template to the client browser.
+4.  **AI Enhancements**: Users click "Recommend Edge Cases". The backend queries Gemini with the AST metadata, cleans code redefinitions, and displays recommended test functions.
+5.  **Saving**: Appending recommendations automatically updates the editor. Clicking "Save" calls `/api/tests/{project_id}/save`, storing it in SQLite (`generated_tests` table).
+6.  **Sandboxed Execution**: Clicking "Execute" sends a POST request to `/api/tests/{project_id}/run`. The backend writes all files to a unique temporary directory, spawns `pytest --cov`, parses execution states, updates `test_runs` in the database, and returns log data to the browser charts.
+
+---
+
+## 6. AI Integration Points
+
+*   **Endpoint `/api/ai/recommend`**: Accepts a target file name, class name, and code block.
+*   **Prompt Construction**: Dynamically bundles the class/method AST structure into a system instruction context.
+*   **Dynamic Fallback Logic**: Checks for `429 Too Many Requests` API quota limits. If hit, it transparently downgrades from `gemini-2.5-pro` to `gemini-2.5-flash` to maintain functionality.
+*   **Post-processing Cleansing**: The backend parses the AI response and removes any top-level class redefinitions (e.g. `class Book:`) that would duplicate imported types and crash compilation.
+
+---
+
+## 7. Testing Architecture
+
+*   **Sandboxing**: Runs in a generated unique directory path `backend/temp_runs/{run_uuid}/` to isolate files.
+*   **Subprocess Execution**: The backend runs python test collections using Python's `subprocess` API:
+    ```bash
+    python -m pytest --cov=. --cov-report=json:coverage.json
+    ```
+*   **Logs Retrieval**: Parses command return codes, stdout prints, and parses `coverage.json` to extract statement totals, coverage percentages, and missing code lines.
+
+---
+
+## 8. QA Automation Architecture
+
+*   **Specification Conversion**: QA engineers input manual specifications (e.g. "Create regular member, borrow book, check status"). TestForge uses Gemini to translate these actions into structured automated Playwright scripts.
+*   **Externalized Test Data**: Mocks parameter datasets (e.g. test credentials, book titles) into decoupled configurations, separating test logic from data variables.
+
+---
+
+## 9. Database Architecture
+
+SQLite manages relational structures with SQLite's default ACID transactions:
+
+*   `users`: Stores `email` (unique index) and `hashed_password` (hashed with bcrypt).
+*   `projects`: Links projects to user owners via `owner_id` (foreign key pointing to `users.id`).
+*   `project_files`: Links source code uploads to parent projects.
+*   `generated_tests`: Stores the current pytest files.
+*   `test_runs`: Tracks pass counts, fail counts, coverage percentages, and console stdout outputs.
+
+---
+
+## 10. Deployment Architecture
+
+*   **Frontend**: Deployed to **Vercel** (`testforge-ai-lime.vercel.app`).
+*   **CORS Configuration**: Restricts origin requests; whitelists your Vercel address to ensure browser security allows API communication.
+
+---
+
+## 11. Security Architecture
+
+*   **Password Hashing**: Employs password hashing using `passlib[bcrypt]` with custom salt configurations.
+*   **Session tokens (JWT)**: Cryptographically signed token payloads using HMAC SHA-256 (`HS256` algorithm).
+*   **Static AST Parsing**: Extracts properties using code syntax compilation, preventing execution of malicious uploads.
+*   **CORS Origin Restrictions**: Whitelists specific domains to block cross-origin requests.
+
+---
+
+## 12. Top 30 Things You Must Understand for the Interview
+
+1.  What an **Abstract Syntax Tree (AST)** is and how Python's native `ast` library works.
+2.  Why **static analysis (AST)** is safer than dynamic imports (`importlib`) when parsing code.
+3.  How **Topological Sort** resolve fixture dependencies.
+4.  Why we use **pytest fixtures** and how they handle dependency injection.
+5.  How FastAPI handles **asynchronous requests (`async`/`await`)**.
+6.  The difference between **concurrency** (async event loops) and **parallelism** (multi-processing).
+7.  How **JWT authentication** works (cryptographic signatures, header verification).
+8.  Why **bcrypt** is used for password hashing and how salting protects against rainbow tables.
+9.  How **SQLAlchemy ORM** abstracts SQL queries and helps prevent SQL Injection attacks.
+10. The role of **FastAPI CORSMiddleware** and how CORS preflight options checks function.
+11. How the **isolated subprocess execution sandbox** in `executor.py` operates.
+12. Why **pytest-cov** is run with JSON output flags to calculate code coverage.
+13. How `testforge_scanner.py` calculates **Cyclomatic Complexity** using AST branches.
+14. What **Code Churn / Modification Frequency** is and why it correlates with software bugs.
+15. The custom **Risk Score Algorithm** weighting formula.
+16. How **dynamic model fallback** works in AI recommenders.
+17. Why **post-process code sanitization** is necessary to prevent duplicate class definition errors.
+18. How browser automation differs from unit testing (e.g. **Playwright vs. PyTest**).
+19. What **strict TypeScript typing** resolves in Next.js builds.
+20. Why **externalizing test data** from scripts is a best practice.
+21. What the **GitHub Pull Request Comments API** is and how comment deduplication works.
+22. How **sqlite3** manages concurrency limitations (file-level lock locks).
+23. The difference between **unit tests**, **integration tests**, and **E2E tests**.
+24. How `@property` decorator methods are accessed without parentheses.
+25. What happens when a method returns `None` and how assertions check this.
+26. How exception raises are tested using `pytest.raises()`.
+27. Why Next.js page generation uses **App Router** server vs client components.
+28. What **CI/CD quality gates** are and how they prevent broken merges.
+29. How token context size limits affect LLM inputs.
+30. How to explain that you built this project **using AI as a pair-programmer** while maintaining full code ownership.
+
+---
+
+## 13. Top 30 Questions an Interviewer Is Likely to Ask
+
+1.  "What was the most challenging technical problem you solved on this project?"
+2.  "How does your backend safely execute user-uploaded python test code?"
+3.  "Why did you choose SQLite over PostgreSQL for this application?"
+4.  "What is an Abstract Syntax Tree (AST), and how did you use it?"
+5.  "Explain how your system resolves fixture dependencies."
+6.  "What happens if two users upload files at the same time? How does SQLite handle concurrency?"
+7.  "How does JWT token verification work? Where is the signature validated?"
+8.  "Why did you use FastAPI instead of Django or Flask?"
+9.  "How does your GitHub Actions workflow comment on Pull Requests without posting duplicate messages?"
+10. "What is Cyclomatic Complexity, and how did you calculate it?"
+11. "Explain your Risk Score formula. Why does code churn affect risk?"
+12. "What happens if the Gemini API rate limit is reached? How does your system handle it?"
+13. "Why does the backend need to clean duplicate class declarations from Gemini's response?"
+14. "What is the difference between `@property` and regular methods? How does your generator test them?"
+15. "How do you verify if a dataclass field was initialized in `__post_init__` versus standard construction?"
+16. "Explain the difference between OAuth2 and JWT. How are they combined in your routers?"
+17. "What is CORS, and why did you have to configure it when deploying to Vercel?"
+18. "If this app scales to 1 million users, what are the first bottlenecks you expect to hit?"
+19. "How would you migrate this project to use PostgreSQL? What changes are required?"
+20. "Why did you use Next.js instead of vanilla React?"
+21. "What is the difference between client components and server components in Next.js?"
+22. "How does Playwright interact with the browser? Why choose it over Selenium?"
+23. "Why is it important to test negative paths? How does your system extract `raise` statements?"
+24. "How does `python-multipart` parse incoming file uploads?"
+25. "Explain how SQLAlchemy session lifecycle management works via `db.close()`."
+26. "How did using AI to assist in coding help you, and how did you ensure you understood the code?"
+27. "What is a coverage gap? Why is line-level coverage more useful than file-level coverage?"
+28. "If a test run hangs or takes too long in the sandbox, how does your executor prevent a server crash?"
+29. "Where are environment variables stored, and how does python-dotenv load them?"
+30. "What is one feature you would add next to make TestForge AI production-ready?"
+
+---
+
+## 14. Topics You Currently Appear Weakest In (Based on Codebase)
+
+1.  **Concurrency Scaling**: Understanding how to use background queues (like Celery/Redis) rather than blocking python subprocess executions on FastAPI endpoints.
+2.  **Mocking Frameworks**: Explaining how to mock active databases or third-party API dependencies inside the pytest sandbox.
+3.  **Authentication Protocols**: Explaining the exact mechanics of JWT signatures and key rotation.
+4.  **Database Concurrency & Locking**: Explaining SQLite's database-level write locks versus PostgreSQL's row-level locks.
+
+---
+
+## 15. Recommended Learning Order
+
+1.  **Core Architecture & AST Engine** (Phases 1, 5, 6)
+2.  **Python Concepts & Database Layer** (Phases 2, 4)
+3.  **FastAPI, Next.js & REST Communication** (Phases 3, 11)
+4.  **PyTest, Coverage & Playwright Testing** (Phases 8, 9, 10)
+5.  **AI recommendation & Fallback Logic** (Phase 7)
+6.  **Security, Scalability & Production Architectures** (Phases 12, 17, 18, 19)
+7.  **System Design, Mock Interviews & Vibe Coding Defense** (Phases 16, 21)
