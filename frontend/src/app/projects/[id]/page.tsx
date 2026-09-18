@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, API_BASE, getAuthHeaders } from "@/lib/api";
 import { 
   ArrowLeft,
   FileCode, 
@@ -560,24 +560,25 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "data:text/csv;charset=utf-8,title,description,steps,expected_result,test_data\n"
+    const csvContent = "title,description,steps,expected_result,test_data\n"
       + '"User Login","Verify login page works","1. Navigate to login page\\n2. Enter credentials\\n3. Click Login","Dashboard page is displayed","{""username"": ""test"", ""password"": ""secret""}"\n';
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.href = url;
     link.setAttribute("download", "testforge_template.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   const handleExportCSV = async () => {
     try {
-      const token = localStorage.getItem("token") || "";
-      const response = await fetch(`http://localhost:8000/api/testcases/${projectId}/export`, {
+      const response = await fetch(`${API_BASE}/testcases/${projectId}/export`, {
         headers: {
-          "Authorization": `Bearer ${token}`
-        }
+          ...getAuthHeaders(),
+        },
       });
       if (!response.ok) {
         throw new Error("Failed to export CSV");
