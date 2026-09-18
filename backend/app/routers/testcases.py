@@ -101,6 +101,7 @@ async def import_test_cases(
         raise HTTPException(status_code=400, detail="Only UTF-8 encoded CSV files are supported")
 
     imported_count = 0
+    updated_count = 0
     errors = []
 
     csv_reader = csv.DictReader(io.StringIO(content))
@@ -111,6 +112,12 @@ async def import_test_cases(
             status_code=400, 
             detail=f"CSV must contain at least the following headers: {', '.join(required_cols)}"
         )
+
+    # Pre-fetch existing test cases for this project for fast deduplication by title
+    existing_cases = {
+        tc.title.strip(): tc
+        for tc in db.query(models.TestCase).filter(models.TestCase.project_id == project_id).all()
+    }
 
     for idx, row in enumerate(csv_reader):
         try:
@@ -132,23 +139,45 @@ async def import_test_cases(
             description = row.get("description", "").strip()
             test_data = row.get("test_data", "").strip()
 
-            testcase = models.TestCase(
-                project_id=project_id,
-                title=title,
-                description=description if description else None,
-                steps=steps,
-                expected_result=expected_result,
-                test_data=test_data if test_data else None
-            )
-            db.add(testcase)
-            imported_count += 1
+            if title in existing_cases:
+                # Deduplicate: update existing test case in-place
+                tc = existing_cases[title]
+                tc.description = description if description else None
+                tc.steps = steps
+                tc.expected_result = expected_result
+                tc.test_data = test_data if test_data else None
+                updated_count += 1
+            else:
+                testcase = models.TestCase(
+                    project_id=project_id,
+                    title=title,
+                    description=description if description else None,
+                    steps=steps,
+                    expected_result=expected_result,
+                    test_data=test_data if test_data else None
+                )
+                db.add(testcase)
+                existing_cases[title] = testcase
+                imported_count += 1
         except Exception as e:
             errors.append(f"Row {idx+1}: {str(e)}")
 
     db.commit()
 
+    msg_parts = []
+    if imported_count > 0:
+        msg_parts.append(f"{imported_count} new test cases added")
+    if updated_count > 0:
+        msg_parts.append(f"{updated_count} existing test cases updated (deduplicated)")
+    if not msg_parts:
+        msg = "No test cases were imported."
+    else:
+        msg = f"Successfully processed: {', '.join(msg_parts)}."
+
     return {
-        "message": f"Successfully imported {imported_count} test cases.",
+        "message": msg,
+        "imported_count": imported_count,
+        "updated_count": updated_count,
         "errors": errors
     }
 

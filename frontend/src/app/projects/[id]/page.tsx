@@ -496,6 +496,7 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
       alert(err.message || "Failed to import CSV");
     } finally {
       setCsvImportLoading(false);
+      e.target.value = "";
     }
   };
 
