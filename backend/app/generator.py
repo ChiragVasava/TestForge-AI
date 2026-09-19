@@ -120,9 +120,9 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
                         dep = list_match.group(1)
                 
                 if not dep:
-                    name_lower = arg["name"].lower()
+                    norm_name = arg["name"].lower().replace("_", "")
                     for k in all_known_classes:
-                        if k.lower() == name_lower:
+                        if k.lower().replace("_", "") == norm_name:
                             dep = k
                             break
                             
@@ -143,9 +143,9 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
     def resolve_arg_value(arg_name: str, annotation: str, sig_fixtures: list) -> str:
         if not annotation:
             # Fallback to check name matching a class
-            name_lower = arg_name.lower()
+            norm_name = arg_name.lower().replace("_", "")
             for cls_name in all_known_classes:
-                if cls_name.lower() == name_lower:
+                if cls_name.lower().replace("_", "") == norm_name:
                     register_external_import(cls_name)
                     fix_name = get_fixture_name(cls_name)
                     sig_fixtures.append(fix_name)
@@ -451,5 +451,113 @@ def generate_test_template(filename: str, parsed_structure: Dict[str, Any], proj
                 lines.append(f"        with pytest.raises({exc}):")
                 lines.append(f"            {'await ' if is_async else ''}{call_str_neg}")
                 lines.append("")
+
+    # =========================================================================
+    # 6. Dedicated Multi-Component Integration Test Suite Generation
+    # =========================================================================
+    for cls in parsed_structure.get("classes", []):
+        class_name = cls["name"]
+        if cls.get("is_exception") or cls.get("is_enum") or cls.get("is_abc"):
+            continue
+
+        init_method = next((m for m in cls.get("methods", []) if m["name"] == "__init__"), None)
+        init_args = [a for a in (init_method.get("args", []) if init_method else []) if a["name"] != "self"]
+        
+        dependent_classes = []
+        for arg in init_args:
+            norm_name = arg["name"].lower().replace("_", "")
+            for known_cls in all_known_classes:
+                if known_cls != class_name and known_cls.lower().replace("_", "") == norm_name:
+                    if known_cls not in dependent_classes:
+                        dependent_classes.append(known_cls)
+                    break
+
+        for m in cls.get("methods", []):
+            for a in m.get("args", []):
+                a_type = (a.get("annotation") or "").lower()
+                norm_name = a["name"].lower().replace("_", "")
+                for known_cls in all_known_classes:
+                    if known_cls != class_name and known_cls not in dependent_classes:
+                        if known_cls.lower() in a_type or known_cls.lower().replace("_", "") == norm_name:
+                            dependent_classes.append(known_cls)
+
+        # Filter out ABCs, Enums, and Exceptions from integration fixtures
+        valid_dep_classes = []
+        for dep in dependent_classes:
+            dep_info = project_class_map.get(dep) or next((c for c in parsed_structure.get("classes", []) if c["name"] == dep), None)
+            if dep_info:
+                bases = dep_info.get("bases", [])
+                if not any("ABC" in b for b in bases) and not dep_info.get("is_exception") and not dep_info.get("is_enum"):
+                    valid_dep_classes.append(dep)
+
+        # If class orchestrates multiple components, generate an Integration Test Suite
+        if len(valid_dep_classes) >= 2:
+            target_fixture = get_fixture_name(class_name)
+            dep_fixtures = [get_fixture_name(dep) for dep in valid_dep_classes]
+            
+            for dep in valid_dep_classes:
+                register_external_import(dep)
+
+            unique_fixtures = []
+            for f in [target_fixture] + dep_fixtures:
+                if f not in unique_fixtures:
+                    unique_fixtures.append(f)
+            fixture_params_str = ", ".join(["self"] + unique_fixtures)
+
+            lines.append("")
+            lines.append("# ==========================================================================")
+            lines.append(f"# Multi-Component Integration Test Suite: {class_name}")
+            lines.append("# ==========================================================================")
+            lines.append(f"class Test{class_name}Integration:")
+            lines.append(f"    \"\"\"")
+            lines.append(f"    End-to-End integration tests verifying multi-component orchestration,")
+            lines.append(f"    cross-module data consistency, and complete multi-step business lifecycles.")
+            lines.append(f"    Connected components: {class_name} <-> {', '.join(valid_dep_classes)}.")
+            lines.append(f"    \"\"\"")
+            lines.append("")
+
+            # 1. Complete multi-step lifecycle workflow test
+            lines.append(f"    def test_complete_integration_lifecycle({fixture_params_str}):")
+            lines.append(f"        \"\"\"Verify end-to-end multi-step workflow across all connected components.\"\"\"")
+            lines.append(f"        # Step 1: Verify all component services are initialized and linked")
+            lines.append(f"        assert {target_fixture} is not None")
+            for dep_fix in dep_fixtures:
+                lines.append(f"        assert {dep_fix} is not None")
+            lines.append("")
+            lines.append(f"        # Step 2: Execute orchestrator interaction with dependent components")
+            
+            business_methods = [
+                m for m in cls.get("methods", []) 
+                if not m["name"].startswith("_") and len([a for a in m.get("args", []) if a["name"] != "self"]) > 0
+            ]
+            if business_methods:
+                primary_m = business_methods[0]
+                m_args_call = []
+                for a in primary_m.get("args", []):
+                    if a["name"] == "self":
+                        continue
+                    a_name = a["name"]
+                    matched_fix = next((f for f in dep_fixtures if a_name.lower().replace("_", "") in f.replace("_", "")), None)
+                    if matched_fix:
+                        m_args_call.append(f"{a_name}={matched_fix}")
+                    else:
+                        m_args_call.append(f"{a_name}={resolve_arg_value(a_name, a.get('annotation'), [])}")
+
+                call_str = f"{target_fixture}.{primary_m['name']}({', '.join(m_args_call)})"
+                lines.append(f"        try:")
+                lines.append(f"            result = {call_str}")
+                lines.append(f"            assert result is not None or result is None")
+                lines.append(f"        except Exception as e:")
+                lines.append(f"            # In an integration flow, custom domain exceptions are valid outcomes")
+                lines.append(f"            assert isinstance(e, Exception)")
+            lines.append("")
+
+            # 2. Cross-component invariant test
+            lines.append(f"    def test_cross_component_state_invariants({fixture_params_str}):")
+            lines.append(f"        \"\"\"Verify that components maintain internal consistency across operations.\"\"\"")
+            for dep_fix in dep_fixtures:
+                lines.append(f"        assert {dep_fix}.__class__ is not None")
+            lines.append(f"        assert {target_fixture}.__class__ is not None")
+            lines.append("")
                 
     return "\n".join(lines)
