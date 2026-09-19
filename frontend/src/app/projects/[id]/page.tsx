@@ -326,6 +326,64 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleExportTestFile = () => {
+    if (!testContent) {
+      alert("No test content available to export.");
+      return;
+    }
+    const filename = testFilename || (selectedFile ? `test_${selectedFile.filename}` : "test_suite.py");
+    const blob = new Blob([testContent], { type: "text/x-python;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleImportTestFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    if (!file.name.endsWith(".py")) {
+      alert("Please select a Python test file (.py)");
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      setTestContent(content);
+      setTestFilename(file.name);
+      setActiveTab("tests");
+
+      // Auto-save imported test to backend
+      const saved = await apiRequest(`/tests/${projectId}/save`, {
+        method: "POST",
+        body: JSON.stringify({
+          filename: file.name,
+          content: content,
+          scanned_item_name: selectedFile?.filename || file.name.replace(/^test_/, "")
+        }),
+      });
+
+      setTestsList(prev => {
+        const exists = prev.find(t => t.id === saved.id);
+        if (exists) {
+          return prev.map(t => t.id === saved.id ? saved : t);
+        }
+        return [...prev, saved];
+      });
+
+      setTestSuccessMessage(`Imported ${file.name} successfully! Click 'Execute PyTest Suite' to run.`);
+    } catch (err: any) {
+      alert(err.message || "Failed to import test file");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   const handleRunTests = async () => {
     if (testFilename) {
       try {
@@ -847,14 +905,43 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
                     </div>
 
                     {activeTab === "tests" && (
-                      <button
-                        onClick={handleSaveTest}
-                        disabled={saveLoading}
-                        className="flex items-center gap-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3.5 py-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                        <span>{saveLoading ? "Saving..." : "Save Test File"}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {/* Hidden input for importing .py test files */}
+                        <input
+                          type="file"
+                          id="import-test-file-input"
+                          accept=".py"
+                          className="hidden"
+                          onChange={handleImportTestFile}
+                        />
+                        <button
+                          onClick={() => document.getElementById("import-test-file-input")?.click()}
+                          title="Import an existing Python test file (.py)"
+                          className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Import Test (.py)</span>
+                        </button>
+
+                        <button
+                          onClick={handleExportTestFile}
+                          disabled={!testContent}
+                          title="Download current test file (.py)"
+                          className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span>Export Test File</span>
+                        </button>
+
+                        <button
+                          onClick={handleSaveTest}
+                          disabled={saveLoading}
+                          className="flex items-center gap-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3.5 py-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Save className="h-3.5 w-3.5" />
+                          <span>{saveLoading ? "Saving..." : "Save Test File"}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
