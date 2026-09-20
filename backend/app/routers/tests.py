@@ -8,8 +8,28 @@ from app import models, schemas, auth
 from app.parser import scan_code
 from app.generator import generate_test_template, clean_module_name
 from app.executor import execute_tests
+from app.relationships import analyze_project_relationships
 
 router = APIRouter(prefix="/tests", tags=["Tests & Execution"])
+
+@router.get("/{project_id}/relationships")
+def get_project_relationships(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    project = db.query(models.Project).filter(
+        models.Project.id == project_id,
+        models.Project.owner_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project_files = db.query(models.ProjectFile).filter(
+        models.ProjectFile.project_id == project_id
+    ).all()
+
+    return analyze_project_relationships(project_files)
 
 @router.get("/{project_id}/generate")
 def generate_tests_for_file(

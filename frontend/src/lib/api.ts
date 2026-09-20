@@ -6,7 +6,7 @@ export function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function apiRequest(path: string, options: RequestInit = {}): Promise<any> {
+export async function apiRequest<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...getAuthHeaders(),
     ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
@@ -33,7 +33,7 @@ export async function apiRequest(path: string, options: RequestInit = {}): Promi
   }
   
   if (response.status === 204) {
-    return null;
+    return null as T;
   }
   
   return response.json();

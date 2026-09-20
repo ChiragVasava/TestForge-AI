@@ -24,8 +24,12 @@ import {
   Download,
   Database,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  Network,
+  Workflow,
+  GitFork
 } from "lucide-react";
+import { ProjectRelationshipsView, RelationshipData } from "./ProjectRelationshipsView";
 
 interface FileItem {
   id: number;
@@ -105,7 +109,9 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
   const [fileContent, setFileContent] = useState("");
   const [analysis, setAnalysis] = useState<FileAnalysis | null>(null);
   const [selectedElement, setSelectedElement] = useState<{ name: string; type: "class" | "function" } | null>(null);
-  const [activeTab, setActiveTab] = useState<"source" | "tests">("source");
+  const [activeTab, setActiveTab] = useState<"source" | "tests" | "relationships">("source");
+  const [relationshipsData, setRelationshipsData] = useState<RelationshipData | null>(null);
+  const [relationshipsLoading, setRelationshipsLoading] = useState(false);
   const [testContent, setTestContent] = useState("");
   const [testFilename, setTestFilename] = useState("");
   const [testsList, setTestsList] = useState<GeneratedTest[]>([]);
@@ -172,6 +178,9 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
         const tdList = await apiRequest(`/testcases/${projectId}/testdata`);
         setTestDataList(tdList);
 
+        // Fetch project relationships
+        fetchRelationships();
+
         if (fileList.length > 0) {
           handleSelectFile(fileList[0]);
         }
@@ -182,6 +191,18 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
 
     loadProject();
   }, [projectId, router]);
+
+  const fetchRelationships = async () => {
+    try {
+      setRelationshipsLoading(true);
+      const data = await apiRequest<RelationshipData>(`/tests/${projectId}/relationships`);
+      setRelationshipsData(data);
+    } catch (err: any) {
+      console.error("Failed to fetch relationships:", err);
+    } finally {
+      setRelationshipsLoading(false);
+    }
+  };
 
   const handleSelectFile = async (fileItem: FileItem) => {
     setSelectedFile(fileItem);
@@ -261,6 +282,8 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
         setSelectedFile(lastResult.file);
         handleSelectFile(lastResult.file);
       }
+      // Re-fetch project relationships after uploading new file
+      fetchRelationships();
     } catch (err: any) {
       alert(err.message || "Failed to upload file");
     } finally {
@@ -873,102 +896,129 @@ export default function ProjectWorkspace({ params }: { params: Promise<{ id: str
               )}
             </aside>
 
-            {/* Center Column: Workspace Code Editor */}
+            {/* Center Column: Workspace Code Editor / Relationships View */}
             <section className="flex-1 border-r border-gray-900 bg-gray-950/50 flex flex-col overflow-hidden">
-              {selectedFile ? (
-                <>
-                  {/* Tab Header Toolbar */}
-                  <div className="px-6 py-2.5 border-b border-gray-900 flex items-center justify-between shrink-0 bg-gray-950">
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setActiveTab("source")}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                          activeTab === "source"
-                            ? "bg-gray-900 text-white border border-gray-800"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <Code className="h-3.5 w-3.5" />
-                        <span>Source Code</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("tests")}
-                        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                          activeTab === "tests"
-                            ? "bg-gray-900 text-white border border-gray-800"
-                            : "text-gray-400 hover:text-white"
-                        }`}
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        <span>Generated PyTest</span>
-                      </button>
-                    </div>
+              {/* Tab Header Toolbar */}
+              <div className="px-6 py-2.5 border-b border-gray-900 flex items-center justify-between shrink-0 bg-gray-950">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setActiveTab("source")}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      activeTab === "source"
+                        ? "bg-gray-900 text-white border border-gray-800"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    <span>Source Code</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("tests")}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      activeTab === "tests"
+                        ? "bg-gray-900 text-white border border-gray-800"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Generated PyTest</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab("relationships");
+                      fetchRelationships();
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      activeTab === "relationships"
+                        ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <Network className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Relationships</span>
+                  </button>
+                </div>
 
-                    {activeTab === "tests" && (
-                      <div className="flex items-center gap-2">
-                        {/* Hidden input for importing .py test files */}
-                        <input
-                          type="file"
-                          id="import-test-file-input"
-                          accept=".py"
-                          className="hidden"
-                          onChange={handleImportTestFile}
-                        />
-                        <button
-                          onClick={() => document.getElementById("import-test-file-input")?.click()}
-                          title="Import an existing Python test file (.py)"
-                          className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer"
-                        >
-                          <Upload className="h-3.5 w-3.5" />
-                          <span>Import Test (.py)</span>
-                        </button>
+                {activeTab === "tests" && selectedFile && (
+                  <div className="flex items-center gap-2">
+                    {/* Hidden input for importing .py test files */}
+                    <input
+                      type="file"
+                      id="import-test-file-input"
+                      accept=".py"
+                      className="hidden"
+                      onChange={handleImportTestFile}
+                    />
+                    <button
+                      onClick={() => document.getElementById("import-test-file-input")?.click()}
+                      title="Import an existing Python test file (.py)"
+                      className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Import Test (.py)</span>
+                    </button>
 
-                        <button
-                          onClick={handleExportTestFile}
-                          disabled={!testContent}
-                          title="Download current test file (.py)"
-                          className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span>Export Test File</span>
-                        </button>
+                    <button
+                      onClick={handleExportTestFile}
+                      disabled={!testContent}
+                      title="Download current test file (.py)"
+                      className="flex items-center gap-1.5 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Export Test File</span>
+                    </button>
 
-                        <button
-                          onClick={handleSaveTest}
-                          disabled={saveLoading}
-                          className="flex items-center gap-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3.5 py-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          <Save className="h-3.5 w-3.5" />
-                          <span>{saveLoading ? "Saving..." : "Save Test File"}</span>
-                        </button>
-                      </div>
-                    )}
+                    <button
+                      onClick={handleSaveTest}
+                      disabled={saveLoading}
+                      className="flex items-center gap-2 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 px-3.5 py-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>{saveLoading ? "Saving..." : "Save Test File"}</span>
+                    </button>
                   </div>
+                )}
+              </div>
 
-                  {/* Status Banner */}
-                  {testSuccessMessage && (
-                    <div className="bg-indigo-950/30 border-b border-indigo-500/20 px-6 py-3 text-xs text-indigo-300 flex items-center gap-2 shrink-0">
-                      <Terminal className="h-4 w-4 text-indigo-400 shrink-0" />
-                      <span>{testSuccessMessage}</span>
-                    </div>
+              {/* Status Banner */}
+              {activeTab === "tests" && testSuccessMessage && (
+                <div className="bg-indigo-950/30 border-b border-indigo-500/20 px-6 py-3 text-xs text-indigo-300 flex items-center gap-2 shrink-0">
+                  <Terminal className="h-4 w-4 text-indigo-400 shrink-0" />
+                  <span>{testSuccessMessage}</span>
+                </div>
+              )}
+
+              {/* Center Body */}
+              {activeTab === "relationships" ? (
+                <div className="flex-1 overflow-hidden bg-gray-950">
+                  <ProjectRelationshipsView
+                    data={relationshipsData}
+                    loading={relationshipsLoading}
+                    onRefresh={fetchRelationships}
+                    onSelectFile={(fn) => {
+                      const found = files.find(f => f.filename === fn);
+                      if (found) {
+                        handleSelectFile(found);
+                        setActiveTab("source");
+                      }
+                    }}
+                  />
+                </div>
+              ) : selectedFile ? (
+                <div className="flex-1 overflow-hidden p-6 bg-gray-950">
+                  {activeTab === "source" ? (
+                    <pre className="h-full overflow-y-auto bg-gray-900/40 border border-gray-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed tab-size-4 select-text">
+                      <code>{fileContent}</code>
+                    </pre>
+                  ) : (
+                    <textarea
+                      value={testContent}
+                      onChange={(e) => setTestContent(e.target.value)}
+                      className="w-full h-full bg-gray-900/40 border border-gray-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed outline-none focus:border-indigo-500/30 transition-all resize-none"
+                      spellCheck="false"
+                    />
                   )}
-
-                  {/* Code Editor Body */}
-                  <div className="flex-1 overflow-hidden p-6 bg-gray-950">
-                    {activeTab === "source" ? (
-                      <pre className="h-full overflow-y-auto bg-gray-900/40 border border-gray-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed tab-size-4 select-text">
-                        <code>{fileContent}</code>
-                      </pre>
-                    ) : (
-                      <textarea
-                        value={testContent}
-                        onChange={(e) => setTestContent(e.target.value)}
-                        className="w-full h-full bg-gray-900/40 border border-gray-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed outline-none focus:border-indigo-500/30 transition-all resize-none"
-                        spellCheck="false"
-                      />
-                    )}
-                  </div>
-                </>
+                </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-gray-950">
                   <FileCode className="h-12 w-12 text-gray-700 mb-4" />
